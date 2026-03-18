@@ -73,6 +73,13 @@ class Lexer(private val input: String) {
             next()
         }
 
+        if (peek() == '.' && (position + 1 < input.length && input[position + 1].isDigit())) {
+            next()
+            while (peek().isDigit()) {
+                next()
+            }
+        }
+
         val text = input.substring(startPos, position)
         return Token(TokenType.NUMBER, text, startPos, startLine, startCol)
     }
