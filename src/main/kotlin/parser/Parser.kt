@@ -20,11 +20,17 @@ import java.text.ParseException
 class Parser(private val tokens: List<Token>) {
     private var position = 0
     private val variables = mutableListOf<VarStatement>()
+    val errors = mutableListOf<String>()
 
     fun parse(): List<Statement> {
         val statements = mutableListOf<Statement>()
         while (!isAtEnd()) {
-            statements.add(parseDeclaration())
+            try {
+                statements.add(parseDeclaration())
+            } catch (e: ParseException) {
+                errors.add(e.message ?: "Unknown error")
+                synchronize()
+            }
         }
         checkVariableUsage()
         return statements
@@ -33,10 +39,10 @@ class Parser(private val tokens: List<Token>) {
     private fun checkVariableUsage() {
         for (variable in variables) {
             if (!variable.isUsed) {
-                throw ParseException("Переменная '${variable.name}' не используется", 0)
+                errors.add("Переменная '${variable.name}' не используется")
             }
             if (!variable.isInitialized) {
-                throw ParseException("Переменная '${variable.name}' не инициализирована", 0)
+                errors.add("Переменная '${variable.name}' не инициализирована")
             }
         }
     }
@@ -272,5 +278,18 @@ class Parser(private val tokens: List<Token>) {
         if (check(type)) return advance()
         val token = peek()
         throw ParseException(message, token.line)
+    }
+
+    private fun synchronize() {
+        advance()
+
+        while (!isAtEnd()) {
+            if (previous().tokenType == TokenType.SEMICOLON) return
+
+            when (peek().tokenType) {
+                TokenType.VAR, TokenType.PRINT, TokenType.IF, TokenType.WHILE -> return
+                else -> advance()
+            }
+        }
     }
 }
