@@ -1,4 +1,4 @@
-package org.example.enums
+package org.example.lexer.enums
 
 enum class TokenType {
     NUMBER,

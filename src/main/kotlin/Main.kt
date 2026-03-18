@@ -1,6 +1,6 @@
 package org.example
 
-import org.example.models.Lexer
+import lexer.models.Lexer
 
 fun main() {
     val codeExample = "var x = 123; print x + 5;"
