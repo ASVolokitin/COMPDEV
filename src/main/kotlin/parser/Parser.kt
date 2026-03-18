@@ -1,4 +1,4 @@
-package org.example.parser
+package parser
 
 import org.example.lexer.enums.TokenType
 import org.example.lexer.models.Token
@@ -15,17 +15,30 @@ import parser.ast.statement.PrintStatement
 import parser.ast.statement.Statement
 import parser.ast.statement.VarStatement
 import parser.ast.statement.WhileStatement
+import java.text.ParseException
 
-class Parser(tokens: Iterable<Token>) {
-    private val tokens: List<Token> = tokens.toList()
-    private var position: Int = 0
+class Parser(private val tokens: List<Token>) {
+    private var position = 0
+    private val variables = mutableListOf<VarStatement>()
 
     fun parse(): List<Statement> {
         val statements = mutableListOf<Statement>()
         while (!isAtEnd()) {
             statements.add(parseDeclaration())
         }
+        checkVariableUsage()
         return statements
+    }
+
+    private fun checkVariableUsage() {
+        for (variable in variables) {
+            if (!variable.isUsed) {
+                throw ParseException("Переменная '${variable.name}' не используется", 0)
+            }
+            if (!variable.isInitialized) {
+                throw ParseException("Переменная '${variable.name}' не инициализирована", 0)
+            }
+        }
     }
 
     private fun parseDeclaration(): Statement {
@@ -50,7 +63,9 @@ class Parser(tokens: Iterable<Token>) {
         }
 
         consume(TokenType.SEMICOLON, "Ожидается ';' после объявления переменной.")
-        return VarStatement(name.value, initializer)
+        val varStatement = VarStatement(name.value, initializer)
+        variables.add(varStatement)
+        return varStatement
     }
 
     private fun parseIfStatement(): Statement {
@@ -112,10 +127,12 @@ class Parser(tokens: Iterable<Token>) {
             val value = parseAssignment()
 
             if (expr is VariableExpression) {
+                val variable = variables.find { it.name == expr.name }
+                variable?.isInitialized = true
                 return AssignExpression(expr.name, value)
             }
 
-            throw Exception("[Parser Error] Line ${equals.line}: Недопустимая цель для присваивания.")
+            throw ParseException("Недопустимая цель для присваивания.", equals.line)
         }
 
         return expr
@@ -210,7 +227,10 @@ class Parser(tokens: Iterable<Token>) {
         }
 
         if (match(TokenType.ID)) {
-            return VariableExpression(previous().value)
+            val variableName = previous().value
+            val variable = variables.find { it.name == variableName }
+            variable?.isUsed = true
+            return VariableExpression(variableName)
         }
 
         if (match(TokenType.LPAREN)) {
@@ -219,7 +239,7 @@ class Parser(tokens: Iterable<Token>) {
             return expr
         }
 
-        throw Exception("[Parser Error] Line ${peek().line}, Col ${peek().column}: Ожидается выражение.")
+        throw ParseException("Ожидается выражение.", peek().line)
     }
 
     private fun match(vararg types: TokenType): Boolean {
@@ -251,6 +271,6 @@ class Parser(tokens: Iterable<Token>) {
     private fun consume(type: TokenType, message: String): Token {
         if (check(type)) return advance()
         val token = peek()
-        throw Exception("[Parser Error] Line ${token}, Col ${token.column}: $message")
+        throw ParseException(message, token.line)
     }
 }

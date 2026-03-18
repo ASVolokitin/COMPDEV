@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "2.2.20"
+    kotlin("jvm") version "1.9.0"
 }
 
 group = "org.example"
@@ -13,9 +13,19 @@ dependencies {
     testImplementation(kotlin("test"))
 }
 
+sourceSets {
+    main {
+        java.srcDirs("src/main/kotlin")
+    }
+    test {
+        java.srcDirs("src/test/kotlin")
+    }
+}
+
 tasks.test {
     useJUnitPlatform()
 }
+
 kotlin {
     jvmToolchain(17)
 }
