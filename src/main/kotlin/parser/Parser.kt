@@ -4,8 +4,10 @@ import org.example.lexer.enums.TokenType
 import org.example.lexer.models.Token
 import parser.ast.expression.AssignExpression
 import parser.ast.expression.BinaryExpression
+import parser.ast.expression.BooleanExpression
 import parser.ast.expression.Expression
 import parser.ast.expression.NumberExpression
+import parser.ast.expression.StringExpression
 import parser.ast.expression.UnaryExpression
 import parser.ast.expression.VariableExpression
 import parser.ast.statement.BlockStatement
@@ -62,6 +64,7 @@ class Parser(private val tokens: List<Token>) {
 
     private fun parseVarDeclaration(): Statement {
         val name = consume(TokenType.ID, "Ожидается имя переменной.")
+        val declaredType = if (match(TokenType.COLON)) parseTypeName() else null
         var initializer: Expression? = null
 
         if (match(TokenType.EQ)) {
@@ -69,9 +72,18 @@ class Parser(private val tokens: List<Token>) {
         }
 
         consume(TokenType.SEMICOLON, "Ожидается ';' после объявления переменной.")
-        val varStatement = VarStatement(name.value, initializer)
+        val varStatement = VarStatement(name.value, declaredType, initializer)
         variables.add(varStatement)
         return varStatement
+    }
+
+    private fun parseTypeName(): String {
+        val typeToken = consume(TokenType.ID, "Ожидается тип переменной после ':'.")
+        val typeName = typeToken.value
+        if (typeName != "number" && typeName != "string" && typeName != "boolean") {
+            throw ParseException("Неизвестный тип '$typeName'. Поддерживаются: number, string, boolean.", typeToken.line)
+        }
+        return typeName
     }
 
     private fun parseIfStatement(): Statement {
@@ -227,6 +239,19 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun parsePrimary(): Expression {
+        if (match(TokenType.STRING)) {
+            val value = previous().value
+            return StringExpression(value)
+        }
+
+        if (match(TokenType.TRUE)) {
+            return BooleanExpression(true)
+        }
+
+        if (match(TokenType.FALSE)) {
+            return BooleanExpression(false)
+        }
+
         if (match(TokenType.NUMBER)) {
             val value = previous().value.toDouble()
             return NumberExpression(value)

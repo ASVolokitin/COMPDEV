@@ -14,7 +14,9 @@ class Lexer(private val input: String) {
         "print" to TokenType.PRINT,
         "if" to TokenType.IF,
         "else" to TokenType.ELSE,
-        "while" to TokenType.WHILE
+        "while" to TokenType.WHILE,
+        "true" to TokenType.TRUE,
+        "false" to TokenType.FALSE
     )
 
     private val operators = mapOf(
@@ -36,7 +38,8 @@ class Lexer(private val input: String) {
         ")" to TokenType.RPAREN,
         "{" to TokenType.LBRACE,
         "}" to TokenType.RBRACE,
-        ";" to TokenType.SEMICOLON
+        ";" to TokenType.SEMICOLON,
+        ":" to TokenType.COLON
     )
 
     fun tokenize(): Sequence<Token> = sequence {
@@ -50,6 +53,11 @@ class Lexer(private val input: String) {
 
             if (current.isDigit()) {
                 yield(readNumber())
+                continue
+            }
+
+            if (current == '"') {
+                yield(readString())
                 continue
             }
 
@@ -96,6 +104,28 @@ class Lexer(private val input: String) {
         val text = input.substring(startPos, position)
         val type = keywords.getOrDefault(text, TokenType.ID)
         return Token(type, text, startPos, startLine, startCol)
+    }
+
+    private fun readString(): Token {
+        val startPos = position
+        val startLine = line
+        val startCol = column
+
+        next()
+        val valueStart = position
+
+        while (peek() != '"' && peek() != '\u0000' && peek() != '\n') {
+            next()
+        }
+
+        if (peek() != '"') {
+            throw Exception("[Lexer Error] Unterminated string at Line $startLine, Column $startCol")
+        }
+
+        val text = input.substring(valueStart, position)
+        next()
+
+        return Token(TokenType.STRING, text, startPos, startLine, startCol)
     }
 
     private fun readOperatorOrPunctuation(): Token {
