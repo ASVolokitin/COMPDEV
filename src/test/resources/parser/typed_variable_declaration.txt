@@ -1,0 +1,6 @@
+var x: number = 5;
+var y: string = "hello";
+var z: boolean = true;
+print x;
+print y;
+print z;

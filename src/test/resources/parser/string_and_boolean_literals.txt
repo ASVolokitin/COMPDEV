@@ -1,0 +1,4 @@
+var str = "hello";
+var flag = true;
+print str;
+print flag;

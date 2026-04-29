@@ -1,0 +1,2 @@
+var name: string = "Sasha";
+var flag: boolean = true;

@@ -1,0 +1,10 @@
+var x = 1;
+{
+    var y = 2;
+    {
+        var z = 3;
+        print z;
+    }
+    print y;
+}
+print x;
