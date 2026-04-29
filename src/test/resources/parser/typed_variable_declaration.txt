@@ -1,0 +1,6 @@
+var name: string = "Sasha";
+var active: boolean = true;
+var count: number = 3;
+print name;
+print active;
+print count;
