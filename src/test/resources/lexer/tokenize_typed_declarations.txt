@@ -1,0 +1,2 @@
+var name: string = "Sasha";
+var active: boolean = true;

@@ -1,0 +1,3 @@
+var text = "hello";
+var flag = true;
+print text + flag;

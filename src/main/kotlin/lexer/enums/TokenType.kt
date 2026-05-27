@@ -5,6 +5,8 @@ enum class TokenType {
 
     ID,
     STRING,
+    TRUE,
+    FALSE,
     VAR,
 
     PRINT,
@@ -21,6 +23,7 @@ enum class TokenType {
     LPAREN, RPAREN,
     LBRACE, RBRACE,
     SEMICOLON,
+    COLON,
 
     EOF
 
