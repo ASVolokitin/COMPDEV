@@ -1,5 +1,6 @@
 package interpreter
 
+import exception.InterpreterException
 import lexer.models.Lexer
 import org.junit.jupiter.api.Test
 import parser.Parser
@@ -40,7 +41,7 @@ class FunctioInterpreterTest {
 
     @Test
     fun `test function argument count mismatch`() {
-        val error = assertFailsWith<RuntimeException> {
+        val error = assertFailsWith<InterpreterException> {
             executeProgram("interpreter/functions/function_argument_count_mismatch.txt")
         }
 

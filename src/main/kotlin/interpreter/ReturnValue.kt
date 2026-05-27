@@ -1,3 +1,5 @@
 package interpreter
 
-class ReturnValue(val value: ValueType) : RuntimeException()
+import exception.ControlFlowException
+
+class ReturnValue(val value: ValueType) : ControlFlowException()

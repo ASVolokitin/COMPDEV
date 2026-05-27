@@ -1,10 +1,12 @@
 package interpreter
 
+import exception.ArrayIndexOutOfBoundsException
 import lexer.models.Lexer
 import parser.Parser
 import org.junit.jupiter.api.Test
 import support.TestProgramLoader
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class InterpreterTest {
 
@@ -107,5 +109,20 @@ class InterpreterTest {
     fun `test boolean false`() {
         val result = executeProgram("interpreter/boolean_false.txt")
         assertEquals("false", result)
+    }
+
+    @Test
+    fun `test array index read and write`() {
+        val result = executeProgram("interpreter/arrays/index_read_and_write.txt")
+        assertEquals("2\n42", result)
+    }
+
+    @Test
+    fun `test array index out of bounds throws exception`() {
+        val error = assertFailsWith<ArrayIndexOutOfBoundsException> {
+            executeProgram("interpreter/arrays/index_out_of_bounds.txt")
+        }
+
+        assertEquals("Array index 3 out of bounds for length 3", error.message)
     }
 }

@@ -2,6 +2,12 @@
 import lexer.models.Lexer
 import org.junit.jupiter.api.Test
 import parser.Parser
+import parser.ast.expression.ArrayExpression
+import parser.ast.expression.IndexAssignExpression
+import parser.ast.expression.IndexExpression
+import parser.ast.statement.ExpressionStatement
+import parser.ast.statement.PrintStatement
+import parser.ast.statement.VarStatement
 import support.TestProgramLoader
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -123,4 +129,31 @@ class ParserTest {
         assertEquals(1, parser.errors.size)
         assertTrue(parser.errors[0].contains("Expected variable type after ':'"))
     }
+
+    @Test
+    fun `test array expressions has no errors and creates ast nodes`() {
+        val code = TestProgramLoader.readProgram("parser/array_expressions.txt")
+        val lexer = Lexer(code)
+        val tokens = lexer.tokenize().toList()
+        val parser = Parser(tokens)
+        val statements = parser.parse()
+
+        assertTrue(parser.errors.isEmpty())
+        assertTrue((statements[0] as VarStatement).initializer is ArrayExpression)
+        assertTrue((statements[1] as PrintStatement).expression is IndexExpression)
+        assertTrue((statements[2] as ExpressionStatement).expression is IndexAssignExpression)
+    }
+
+    @Test
+    fun `test array mixed element types reports error`() {
+        val code = TestProgramLoader.readProgram("parser/array_mixed_types.txt")
+        val lexer = Lexer(code)
+        val tokens = lexer.tokenize().toList()
+        val parser = Parser(tokens)
+        parser.parse()
+
+        assertEquals(1, parser.errors.size)
+        assertTrue(parser.errors[0].contains("Array elements must have the same type"))
+    }
+
 }

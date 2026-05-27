@@ -1,12 +1,17 @@
 package parser
 
+import exception.ParserException
+import exception.ArrayTypeMismatchException
 import org.example.lexer.enums.TokenType
 import org.example.lexer.models.Token
 import parser.ast.expression.AssignExpression
+import parser.ast.expression.ArrayExpression
 import parser.ast.expression.BinaryExpression
 import parser.ast.expression.BooleanExpression
 import parser.ast.expression.CallExpression
 import parser.ast.expression.Expression
+import parser.ast.expression.IndexAssignExpression
+import parser.ast.expression.IndexExpression
 import parser.ast.expression.NumberExpression
 import parser.ast.expression.StringExpression
 import parser.ast.expression.UnaryExpression
@@ -20,11 +25,11 @@ import parser.ast.statement.ReturnStatement
 import parser.ast.statement.Statement
 import parser.ast.statement.VarStatement
 import parser.ast.statement.WhileStatement
-import java.text.ParseException
 
 class Parser(private val tokens: List<Token>) {
     private var position = 0
     private val variables = mutableListOf<VarStatement>()
+    private val variableTypes = mutableMapOf<String, String?>()
     val errors = mutableListOf<String>()
 
     fun parse(): List<Statement> {
@@ -32,7 +37,7 @@ class Parser(private val tokens: List<Token>) {
         while (!isAtEnd()) {
             try {
                 statements.add(parseDeclaration())
-            } catch (e: ParseException) {
+            } catch (e: ParserException) {
                 errors.add(e.message ?: "Unknown error")
                 synchronize()
             }
@@ -95,6 +100,7 @@ class Parser(private val tokens: List<Token>) {
         consume(TokenType.SEMICOLON, "Expected ';' after variable declaration.")
         val varStatement = VarStatement(name.value, declaredType, initializer)
         variables.add(varStatement)
+        variableTypes[name.value] = declaredType ?: initializer?.let { inferExpressionType(it) }
         return varStatement
     }
 
@@ -102,7 +108,7 @@ class Parser(private val tokens: List<Token>) {
         val typeToken = consume(TokenType.ID, "Expected variable type after ':'.")
         val typeName = typeToken.value
         if (typeName != "number" && typeName != "string" && typeName != "boolean") {
-            throw ParseException("Unknown type '$typeName'. Supported types: number, string, boolean.", typeToken.line)
+            throw ParserException("Unknown type '$typeName'. Supported types: number, string, boolean.", typeToken.line)
         }
         return typeName
     }
@@ -174,10 +180,15 @@ class Parser(private val tokens: List<Token>) {
             if (expr is VariableExpression) {
                 val variable = variables.find { it.name == expr.name }
                 variable?.isInitialized = true
+                variableTypes[expr.name] = inferExpressionType(value)
                 return AssignExpression(expr.name, value)
             }
 
-            throw ParseException("Invalid assignment target.", equals.line)
+            if (expr is IndexExpression) {
+                return IndexAssignExpression(expr.array, expr.index, value)
+            }
+
+            throw ParserException("Invalid assignment target.", equals.line)
         }
 
         return expr
@@ -268,19 +279,27 @@ class Parser(private val tokens: List<Token>) {
     private fun parseCall(): Expression {
         var expr = parsePrimary()
 
-        while (match(TokenType.LPAREN)) {
-            val arguments = mutableListOf<Expression>()
-            if (!check(TokenType.RPAREN)) {
-                do {
-                    arguments.add(parseExpression())
-                } while (match(TokenType.COMMA))
-            }
-            consume(TokenType.RPAREN, "Expected ')' after arguments.")
+        while (true) {
+            if (match(TokenType.LPAREN)) {
+                val arguments = mutableListOf<Expression>()
+                if (!check(TokenType.RPAREN)) {
+                    do {
+                        arguments.add(parseExpression())
+                    } while (match(TokenType.COMMA))
+                }
+                consume(TokenType.RPAREN, "Expected ')' after arguments.")
 
-            if (expr !is VariableExpression) {
-                throw ParseException("Expected function name before '('.", previous().line)
+                if (expr !is VariableExpression) {
+                    throw ParserException("Expected function name before '('.", previous().line)
+                }
+                expr = CallExpression(expr.name, arguments)
+            } else if (match(TokenType.LBRACKET)) {
+                val index = parseExpression()
+                consume(TokenType.RBRACKET, "Expected ']' after index.")
+                expr = IndexExpression(expr, index)
+            } else {
+                break
             }
-            expr = CallExpression(expr.name, arguments)
         }
 
         return expr
@@ -318,7 +337,73 @@ class Parser(private val tokens: List<Token>) {
             return expr
         }
 
-        throw ParseException("Expected expression.", peek().line)
+        if (match(TokenType.LBRACKET)) {
+            val elements = mutableListOf<Expression>()
+            if (!check(TokenType.RBRACKET)) {
+                do {
+                    elements.add(parseExpression())
+                } while (match(TokenType.COMMA))
+            }
+            consume(TokenType.RBRACKET, "Expected ']' after array elements.")
+            checkArrayElementTypes(elements)
+            return ArrayExpression(elements)
+        }
+
+        throw ParserException("Expected expression.", peek().line)
+    }
+
+    private fun checkArrayElementTypes(elements: List<Expression>) {
+        var expectedType: String? = null
+        for (element in elements) {
+            val elementType = inferExpressionType(element)
+            if (elementType == null) {
+                continue
+            }
+            if (expectedType == null) {
+                expectedType = elementType
+                continue
+            }
+            if (elementType != expectedType) {
+                throw ArrayTypeMismatchException(peek().line)
+            }
+        }
+    }
+
+    private fun inferExpressionType(expression: Expression): String? {
+        return when (expression) {
+            is NumberExpression -> "number"
+            is StringExpression -> "string"
+            is BooleanExpression -> "boolean"
+            is ArrayExpression -> {
+                val elementType = expression.elements.firstOrNull()?.let { inferExpressionType(it) }
+                elementType?.let { "array<$it>" } ?: "array"
+            }
+            is VariableExpression -> variableTypes[expression.name]
+            is UnaryExpression -> inferExpressionType(expression.right)
+            is BinaryExpression -> inferBinaryExpressionType(expression)
+            is IndexExpression -> {
+                val arrayType = inferExpressionType(expression.array)
+                if (arrayType?.startsWith("array<") == true && arrayType.endsWith(">")) {
+                    arrayType.removePrefix("array<").removeSuffix(">")
+                } else {
+                    null
+                }
+            }
+            else -> null
+        }
+    }
+
+    private fun inferBinaryExpressionType(expression: BinaryExpression): String? {
+        val leftType = inferExpressionType(expression.left)
+        val rightType = inferExpressionType(expression.right)
+        return when (expression.operator) {
+            TokenType.PLUS -> if (leftType == "string" || rightType == "string") "string" else "number"
+            TokenType.MINUS, TokenType.STAR, TokenType.SLASH -> "number"
+            TokenType.EQEQ, TokenType.NEQ,
+            TokenType.LT, TokenType.LTEQ, TokenType.GT, TokenType.GREQ,
+            TokenType.AND, TokenType.OR -> "boolean"
+            else -> null
+        }
     }
 
     private fun match(vararg types: TokenType): Boolean {
@@ -350,7 +435,7 @@ class Parser(private val tokens: List<Token>) {
     private fun consume(type: TokenType, message: String): Token {
         if (check(type)) return advance()
         val token = peek()
-        throw ParseException(message, token.line)
+        throw ParserException(message, token.line)
     }
 
     private fun synchronize() {

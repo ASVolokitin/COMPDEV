@@ -24,6 +24,11 @@ sealed class ValueType {
         override val type: String = "boolean"
         override fun toString() = value.toString()
     }
+
+    data class ArrayValue(val elements: MutableList<ValueType>) : ValueType() {
+        override val type: String = "array"
+        override fun toString() = elements.joinToString(prefix = "[", postfix = "]")
+    }
     
     object NullValue : ValueType() {
         override val type: String = "null"

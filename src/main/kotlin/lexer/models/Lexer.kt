@@ -1,8 +1,8 @@
 package lexer.models
 
+import exception.LexerException
 import org.example.lexer.enums.TokenType
 import org.example.lexer.models.Token
-import java.lang.Exception
 
 class Lexer(private val input: String) {
     private var position: Int = 0
@@ -40,6 +40,8 @@ class Lexer(private val input: String) {
         ")" to TokenType.RPAREN,
         "{" to TokenType.LBRACE,
         "}" to TokenType.RBRACE,
+        "[" to TokenType.LBRACKET,
+        "]" to TokenType.RBRACKET,
         ";" to TokenType.SEMICOLON,
         "," to TokenType.COMMA,
         ":" to TokenType.COLON
@@ -122,7 +124,7 @@ class Lexer(private val input: String) {
         }
 
         if (peek() != '"') {
-            throw Exception("[Lexer Error] Unterminated string at Line $startLine, Column $startCol")
+            throw LexerException("[Lexer Error] Unterminated string at Line $startLine, Column $startCol")
         }
 
         val text = input.substring(valueStart, position)
@@ -152,7 +154,7 @@ class Lexer(private val input: String) {
         }
 
         val badChar = peek()
-        throw Exception("[Lexer Error] Unexpected character '$badChar' at Line $startLine, Column $startCol")
+        throw LexerException("[Lexer Error] Unexpected character '$badChar' at Line $startLine, Column $startCol")
     }
 
     private fun peek(): Char = if (position >= input.length) '\u0000' else input[position]

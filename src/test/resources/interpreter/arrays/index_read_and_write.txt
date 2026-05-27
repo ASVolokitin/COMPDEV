@@ -1,0 +1,4 @@
+var arr = [1, 2, 3];
+print arr[1];
+arr[1] = 42;
+print arr[1];

@@ -10,7 +10,7 @@ name: Kotlin Gradle Unit tests
 
 on:
   push:
-    branches: [ "prac_7" ]
+    branches: [ "prac_8" ]
 
 jobs:
   test:

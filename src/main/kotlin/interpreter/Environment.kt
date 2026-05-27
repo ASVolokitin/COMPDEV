@@ -1,5 +1,6 @@
 package interpreter
 
+import exception.InterpreterException
 import parser.ast.statement.FunctionStatement
 
 class Environment(private val parent: Environment? = null) {
@@ -11,7 +12,7 @@ class Environment(private val parent: Environment? = null) {
     }
 
     fun get(name: String): ValueType {
-        return values[name] ?: parent?.get(name) ?: throw RuntimeException("Variable '$name' not found")
+        return values[name] ?: parent?.get(name) ?: throw InterpreterException("Variable '$name' not found")
     }
 
     fun assign(name: String, value: ValueType) {
@@ -20,7 +21,7 @@ class Environment(private val parent: Environment? = null) {
         } else if (parent != null) {
             parent.assign(name, value)
         } else {
-            throw RuntimeException("Variable '$name' not found")
+            throw InterpreterException("Variable '$name' not found")
         }
     }
 
@@ -29,7 +30,7 @@ class Environment(private val parent: Environment? = null) {
     }
 
     fun getFunction(name: String): FunctionStatement {
-        return functions[name] ?: parent?.getFunction(name) ?: throw RuntimeException("Function '$name' not found")
+        return functions[name] ?: parent?.getFunction(name) ?: throw InterpreterException("Function '$name' not found")
     }
 
     fun createChild(): Environment {

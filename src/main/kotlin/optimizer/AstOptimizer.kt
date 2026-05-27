@@ -1,11 +1,15 @@
 package optimizer
 
+import exception.OptimizerException
 import org.example.lexer.enums.TokenType
 import parser.ast.expression.AssignExpression
+import parser.ast.expression.ArrayExpression
 import parser.ast.expression.BinaryExpression
 import parser.ast.expression.BooleanExpression
 import parser.ast.expression.CallExpression
 import parser.ast.expression.Expression
+import parser.ast.expression.IndexAssignExpression
+import parser.ast.expression.IndexExpression
 import parser.ast.expression.NumberExpression
 import parser.ast.expression.StringExpression
 import parser.ast.expression.UnaryExpression
@@ -83,6 +87,12 @@ class AstOptimizer {
             is BinaryExpression -> optimizeBinary(expression, context)
             is UnaryExpression -> optimizeUnary(expression, context)
             is AssignExpression -> optimizeAssign(expression, context)
+            is ArrayExpression -> ArrayExpression(expression.elements.map { optimizeExpression(it, context) })
+            is IndexExpression -> IndexExpression(
+                optimizeExpression(expression.array, context),
+                optimizeExpression(expression.index, context)
+            )
+            is IndexAssignExpression -> optimizeIndexAssign(expression, context)
             is CallExpression -> optimizeCall(expression, context)
             is VariableExpression -> context.get(expression.name) ?: expression
             is NumberExpression,
@@ -102,6 +112,14 @@ class AstOptimizer {
         val arguments = expression.arguments.map { optimizeExpression(it, context) }
         context.clear()
         return CallExpression(expression.callee, arguments)
+    }
+
+    private fun optimizeIndexAssign(expression: IndexAssignExpression, context: OptimizationContext): Expression {
+        val array = optimizeExpression(expression.array, context)
+        val index = optimizeExpression(expression.index, context)
+        val value = optimizeExpression(expression.value, context)
+        context.clear()
+        return IndexAssignExpression(array, index, value)
     }
 
     private fun optimizeBinary(expression: BinaryExpression, context: OptimizationContext): Expression {
@@ -155,7 +173,7 @@ class AstOptimizer {
             }
             is StringExpression -> expression.value
             is BooleanExpression -> expression.value.toString()
-            else -> throw IllegalArgumentException("Expression is not a constant")
+            else -> throw OptimizerException("Expression is not a constant")
         }
     }
 

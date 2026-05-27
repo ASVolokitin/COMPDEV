@@ -2,10 +2,13 @@ package optimizer
 
 import org.example.lexer.enums.TokenType
 import parser.ast.expression.AssignExpression
+import parser.ast.expression.ArrayExpression
 import parser.ast.expression.BinaryExpression
 import parser.ast.expression.BooleanExpression
 import parser.ast.expression.CallExpression
 import parser.ast.expression.Expression
+import parser.ast.expression.IndexAssignExpression
+import parser.ast.expression.IndexExpression
 import parser.ast.expression.NumberExpression
 import parser.ast.expression.StringExpression
 import parser.ast.expression.UnaryExpression
@@ -65,6 +68,13 @@ class AstPrinter {
             is UnaryExpression -> "(${operatorText(expression.operator)} ${printExpression(expression.right)})"
             is BinaryExpression -> "(${printExpression(expression.left)} ${operatorText(expression.operator)} ${printExpression(expression.right)})"
             is AssignExpression -> "(${expression.name} = ${printExpression(expression.value)})"
+            is ArrayExpression -> expression.elements.joinToString(
+                prefix = "[",
+                separator = ", ",
+                postfix = "]"
+            ) { printExpression(it) }
+            is IndexExpression -> "${printExpression(expression.array)}[${printExpression(expression.index)}]"
+            is IndexAssignExpression -> "(${printExpression(expression.array)}[${printExpression(expression.index)}] = ${printExpression(expression.value)})"
             is CallExpression -> {
                 val arguments = expression.arguments.joinToString(", ") { printExpression(it) }
                 "${expression.callee}($arguments)"

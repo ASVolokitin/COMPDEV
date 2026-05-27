@@ -1,5 +1,10 @@
 package interpreter
 
+import exception.InterpreterException
+import exception.ArrayIndexNotIntegerException
+import exception.ArrayIndexOutOfBoundsException
+import exception.ArrayIndexTypeException
+import exception.ArrayNotIndexableException
 import org.example.lexer.enums.TokenType
 import parser.ast.expression.*
 import parser.ast.statement.*
@@ -75,13 +80,20 @@ class Interpreter {
             is NumberExpression -> ValueType.NumberValue(expression.value)
             is StringExpression -> ValueType.StringValue(expression.value)
             is BooleanExpression -> ValueType.BooleanValue(expression.value)
+            is ArrayExpression -> evaluateArray(expression)
             is VariableExpression -> evaluateVariable(expression)
             is UnaryExpression -> evaluateUnary(expression)
             is BinaryExpression -> evaluateBinary(expression)
             is AssignExpression -> evaluateAssignment(expression)
+            is IndexExpression -> evaluateIndex(expression)
+            is IndexAssignExpression -> evaluateIndexAssignment(expression)
             is CallExpression -> evaluateCall(expression)
-            else -> throw RuntimeException("Unknown expression: ${expression::class.simpleName}")
+            else -> throw InterpreterException("Unknown expression: ${expression::class.simpleName}")
         }
+    }
+
+    private fun evaluateArray(expression: ArrayExpression): ValueType {
+        return ValueType.ArrayValue(expression.elements.map { evaluate(it) }.toMutableList())
     }
     
     private fun evaluateVariable(expression: VariableExpression): ValueType {
@@ -95,13 +107,13 @@ class Interpreter {
             TokenType.MINUS -> {
                 when (right) {
                     is ValueType.NumberValue -> ValueType.NumberValue(-right.value)
-                    else -> throw RuntimeException("Expected number for unary minus")
+                    else -> throw InterpreterException("Expected number for unary minus")
                 }
             }
             TokenType.EXCL -> {
                 ValueType.BooleanValue(!isTruthy(right))
             }
-            else -> throw RuntimeException("Unknown unary operator: ${expression.operator}")
+            else -> throw InterpreterException("Unknown unary operator: ${expression.operator}")
         }
     }
     
@@ -116,7 +128,7 @@ class Interpreter {
                         ValueType.NumberValue(left.value + right.value)
                     left is ValueType.StringValue || right is ValueType.StringValue -> 
                         ValueType.StringValue(left.toString() + right.toString())
-                    else -> throw RuntimeException("Invalid operands for '+'")
+                    else -> throw InterpreterException("Invalid operands for '+'")
                 }
             }
             TokenType.MINUS -> {
@@ -130,7 +142,7 @@ class Interpreter {
             TokenType.SLASH -> {
                 requireBothNumbers(left, right, "/")
                 val rightNum = right as ValueType.NumberValue
-                if (rightNum.value == 0.0) throw RuntimeException("Division by zero")
+                if (rightNum.value == 0.0) throw InterpreterException("Division by zero")
                 ValueType.NumberValue((left as ValueType.NumberValue).value / rightNum.value)
             }
             TokenType.LT -> {
@@ -161,7 +173,7 @@ class Interpreter {
             TokenType.OR -> {
                 ValueType.BooleanValue(isTruthy(left) || isTruthy(right))
             }
-            else -> throw RuntimeException("Unknown binary operator: ${expression.operator}")
+            else -> throw InterpreterException("Unknown binary operator: ${expression.operator}")
         }
     }
     
@@ -171,10 +183,32 @@ class Interpreter {
         return value
     }
 
+    private fun evaluateIndex(expression: IndexExpression): ValueType {
+        val array = evaluate(expression.array)
+        val index = evaluateIndexValue(expression.index)
+        if (array !is ValueType.ArrayValue) {
+            throw ArrayNotIndexableException()
+        }
+        checkArrayBounds(index, array.elements.size)
+        return array.elements[index]
+    }
+
+    private fun evaluateIndexAssignment(expression: IndexAssignExpression): ValueType {
+        val array = evaluate(expression.array)
+        val index = evaluateIndexValue(expression.index)
+        val value = evaluate(expression.value)
+        if (array !is ValueType.ArrayValue) {
+            throw ArrayNotIndexableException()
+        }
+        checkArrayBounds(index, array.elements.size)
+        array.elements[index] = value
+        return value
+    }
+
     private fun evaluateCall(expression: CallExpression): ValueType {
         val function = environment.getFunction(expression.callee)
         if (function.parameters.size != expression.arguments.size) {
-            throw RuntimeException(
+            throw InterpreterException(
                 "Function '${expression.callee}' expects ${function.parameters.size} arguments, got ${expression.arguments.size}"
             )
         }
@@ -203,6 +237,7 @@ class Interpreter {
             is ValueType.BooleanValue -> value.value
             is ValueType.NumberValue -> value.value != 0.0
             is ValueType.StringValue -> value.value.isNotEmpty()
+            is ValueType.ArrayValue -> value.elements.isNotEmpty()
             ValueType.NullValue -> false
         }
     }
@@ -213,13 +248,31 @@ class Interpreter {
             a is ValueType.NumberValue && b is ValueType.NumberValue -> a.value == b.value
             a is ValueType.StringValue && b is ValueType.StringValue -> a.value == b.value
             a is ValueType.BooleanValue && b is ValueType.BooleanValue -> a.value == b.value
+            a is ValueType.ArrayValue && b is ValueType.ArrayValue -> a.elements == b.elements
             else -> false
+        }
+    }
+
+    private fun evaluateIndexValue(expression: Expression): Int {
+        val index = evaluate(expression)
+        if (index !is ValueType.NumberValue) {
+            throw ArrayIndexTypeException()
+        }
+        if (index.value != index.value.toInt().toDouble()) {
+            throw ArrayIndexNotIntegerException()
+        }
+        return index.value.toInt()
+    }
+
+    private fun checkArrayBounds(index: Int, size: Int) {
+        if (index < 0 || index >= size) {
+            throw ArrayIndexOutOfBoundsException(index, size)
         }
     }
     
     private fun requireBothNumbers(left: ValueType, right: ValueType, operator: String) {
         if (left !is ValueType.NumberValue || right !is ValueType.NumberValue) {
-            throw RuntimeException("Operands for '$operator' must be numbers")
+            throw InterpreterException("Operands for '$operator' must be numbers")
         }
     }
 }
