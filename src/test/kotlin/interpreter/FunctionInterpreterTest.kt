@@ -7,7 +7,7 @@ import support.TestProgramLoader
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-class FunctionInterpreterTest {
+class FunctioInterpreterTest {
 
     private fun executeProgram(path: String): String {
         val code = TestProgramLoader.readProgram(path)
