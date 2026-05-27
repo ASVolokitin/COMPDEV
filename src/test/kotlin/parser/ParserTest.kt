@@ -16,7 +16,7 @@ class ParserTest {
         val parser = Parser(tokens)
         parser.parse()
         assertEquals(1, parser.errors.size)
-        assertEquals("Переменная 'x' не используется", parser.errors[0])
+        assertEquals("Variable 'x' is not used", parser.errors[0])
     }
 
     @Test
@@ -27,7 +27,7 @@ class ParserTest {
         val parser = Parser(tokens)
         parser.parse()
         assertEquals(1, parser.errors.size)
-        assertEquals("Переменная 'x' не инициализирована", parser.errors[0])
+        assertEquals("Variable 'x' is not initialized", parser.errors[0])
     }
 
     @Test
@@ -68,7 +68,7 @@ class ParserTest {
         val parser = Parser(tokens)
         parser.parse()
         assertEquals(1, parser.errors.size)
-        assertTrue(parser.errors[0].contains("Ожидается ';'"))
+        assertTrue(parser.errors[0].contains("Expected ';'"))
     }
 
     @Test
@@ -79,7 +79,7 @@ class ParserTest {
         val parser = Parser(tokens)
         parser.parse()
         assertEquals(1, parser.errors.size)
-        assertTrue(parser.errors[0].contains("Недопустимая цель для присваивания"))
+        assertTrue(parser.errors[0].contains("Invalid assignment target"))
     }
 
     @Test
@@ -110,7 +110,7 @@ class ParserTest {
         val parser = Parser(tokens)
         parser.parse()
         assertEquals(1, parser.errors.size)
-        assertTrue(parser.errors[0].contains("Неизвестный тип 'decimal'"))
+        assertTrue(parser.errors[0].contains("Unknown type 'decimal'"))
     }
 
     @Test
@@ -121,6 +121,6 @@ class ParserTest {
         val parser = Parser(tokens)
         parser.parse()
         assertEquals(1, parser.errors.size)
-        assertTrue(parser.errors[0].contains("Ожидается тип переменной после ':'"))
+        assertTrue(parser.errors[0].contains("Expected variable type after ':'"))
     }
 }

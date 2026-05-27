@@ -15,6 +15,8 @@ class Lexer(private val input: String) {
         "if" to TokenType.IF,
         "else" to TokenType.ELSE,
         "while" to TokenType.WHILE,
+        "fun" to TokenType.FUN,
+        "return" to TokenType.RETURN,
         "true" to TokenType.TRUE,
         "false" to TokenType.FALSE
     )
@@ -39,6 +41,7 @@ class Lexer(private val input: String) {
         "{" to TokenType.LBRACE,
         "}" to TokenType.RBRACE,
         ";" to TokenType.SEMICOLON,
+        "," to TokenType.COMMA,
         ":" to TokenType.COLON
     )
 

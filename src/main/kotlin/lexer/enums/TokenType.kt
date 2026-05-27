@@ -14,6 +14,8 @@ enum class TokenType {
     IF,
     ELSE,
     WHILE,
+    FUN,
+    RETURN,
 
     PLUS, MINUS, STAR, SLASH,
     EQ, EQEQ, EXCL, NEQ,
@@ -23,6 +25,7 @@ enum class TokenType {
     LPAREN, RPAREN,
     LBRACE, RBRACE,
     SEMICOLON,
+    COMMA,
     COLON,
 
     EOF

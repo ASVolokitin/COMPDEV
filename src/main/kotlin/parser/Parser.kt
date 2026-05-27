@@ -5,6 +5,7 @@ import org.example.lexer.models.Token
 import parser.ast.expression.AssignExpression
 import parser.ast.expression.BinaryExpression
 import parser.ast.expression.BooleanExpression
+import parser.ast.expression.CallExpression
 import parser.ast.expression.Expression
 import parser.ast.expression.NumberExpression
 import parser.ast.expression.StringExpression
@@ -12,8 +13,10 @@ import parser.ast.expression.UnaryExpression
 import parser.ast.expression.VariableExpression
 import parser.ast.statement.BlockStatement
 import parser.ast.statement.ExpressionStatement
+import parser.ast.statement.FunctionStatement
 import parser.ast.statement.IfStatement
 import parser.ast.statement.PrintStatement
+import parser.ast.statement.ReturnStatement
 import parser.ast.statement.Statement
 import parser.ast.statement.VarStatement
 import parser.ast.statement.WhileStatement
@@ -41,15 +44,16 @@ class Parser(private val tokens: List<Token>) {
     private fun checkVariableUsage() {
         for (variable in variables) {
             if (!variable.isUsed) {
-                errors.add("Переменная '${variable.name}' не используется")
+                errors.add("Variable '${variable.name}' is not used")
             }
             if (!variable.isInitialized) {
-                errors.add("Переменная '${variable.name}' не инициализирована")
+                errors.add("Variable '${variable.name}' is not initialized")
             }
         }
     }
 
     private fun parseDeclaration(): Statement {
+        if (match(TokenType.FUN)) return parseFunctionDeclaration()
         if (match(TokenType.VAR)) return parseVarDeclaration()
         return parseStatement()
     }
@@ -57,13 +61,30 @@ class Parser(private val tokens: List<Token>) {
     private fun parseStatement(): Statement {
         if (match(TokenType.IF)) return parseIfStatement()
         if (match(TokenType.WHILE)) return parseWhileStatement()
+        if (match(TokenType.RETURN)) return parseReturnStatement()
         if (match(TokenType.PRINT)) return parsePrintStatement()
         if (match(TokenType.LBRACE)) return BlockStatement(parseBlock())
         return parseExpressionStatement()
     }
 
+    private fun parseFunctionDeclaration(): Statement {
+        val name = consume(TokenType.ID, "Expected function name.")
+        consume(TokenType.LPAREN, "Expected '(' after function name.")
+
+        val parameters = mutableListOf<String>()
+        if (!check(TokenType.RPAREN)) {
+            do {
+                parameters.add(consume(TokenType.ID, "Expected parameter name.").value)
+            } while (match(TokenType.COMMA))
+        }
+
+        consume(TokenType.RPAREN, "Expected ')' after parameters.")
+        consume(TokenType.LBRACE, "Expected '{' before function body.")
+        return FunctionStatement(name.value, parameters, BlockStatement(parseBlock()))
+    }
+
     private fun parseVarDeclaration(): Statement {
-        val name = consume(TokenType.ID, "Ожидается имя переменной.")
+        val name = consume(TokenType.ID, "Expected variable name.")
         val declaredType = if (match(TokenType.COLON)) parseTypeName() else null
         var initializer: Expression? = null
 
@@ -71,25 +92,25 @@ class Parser(private val tokens: List<Token>) {
             initializer = parseExpression()
         }
 
-        consume(TokenType.SEMICOLON, "Ожидается ';' после объявления переменной.")
+        consume(TokenType.SEMICOLON, "Expected ';' after variable declaration.")
         val varStatement = VarStatement(name.value, declaredType, initializer)
         variables.add(varStatement)
         return varStatement
     }
 
     private fun parseTypeName(): String {
-        val typeToken = consume(TokenType.ID, "Ожидается тип переменной после ':'.")
+        val typeToken = consume(TokenType.ID, "Expected variable type after ':'.")
         val typeName = typeToken.value
         if (typeName != "number" && typeName != "string" && typeName != "boolean") {
-            throw ParseException("Неизвестный тип '$typeName'. Поддерживаются: number, string, boolean.", typeToken.line)
+            throw ParseException("Unknown type '$typeName'. Supported types: number, string, boolean.", typeToken.line)
         }
         return typeName
     }
 
     private fun parseIfStatement(): Statement {
-        consume(TokenType.LPAREN, "Ожидается '(' после 'if'.")
+        consume(TokenType.LPAREN, "Expected '(' after 'if'.")
         val condition = parseExpression()
-        consume(TokenType.RPAREN, "Ожидается ')' после условия 'if'.")
+        consume(TokenType.RPAREN, "Expected ')' after 'if' condition.")
 
         val thenBranch = parseStatement()
         var elseBranch: Statement? = null
@@ -102,9 +123,9 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun parseWhileStatement(): Statement {
-        consume(TokenType.LPAREN, "Ожидается '(' после 'while'.")
+        consume(TokenType.LPAREN, "Expected '(' after 'while'.")
         val condition = parseExpression()
-        consume(TokenType.RPAREN, "Ожидается ')' после условия 'while'.")
+        consume(TokenType.RPAREN, "Expected ')' after 'while' condition.")
 
         val body = parseStatement()
         return WhileStatement(condition, body)
@@ -112,13 +133,19 @@ class Parser(private val tokens: List<Token>) {
 
     private fun parsePrintStatement(): Statement {
         val value = parseExpression()
-        consume(TokenType.SEMICOLON, "Ожидается ';' после значения.")
+        consume(TokenType.SEMICOLON, "Expected ';' after value.")
         return PrintStatement(value)
+    }
+
+    private fun parseReturnStatement(): Statement {
+        val value = if (!check(TokenType.SEMICOLON)) parseExpression() else null
+        consume(TokenType.SEMICOLON, "Expected ';' after return value.")
+        return ReturnStatement(value)
     }
 
     private fun parseExpressionStatement(): Statement {
         val expr = parseExpression()
-        consume(TokenType.SEMICOLON, "Ожидается ';' после выражения.")
+        consume(TokenType.SEMICOLON, "Expected ';' after expression.")
         return ExpressionStatement(expr)
     }
 
@@ -129,7 +156,7 @@ class Parser(private val tokens: List<Token>) {
             statements.add(parseDeclaration())
         }
 
-        consume(TokenType.RBRACE, "Ожидается '}' после блока.")
+        consume(TokenType.RBRACE, "Expected '}' after block.")
         return statements
     }
 
@@ -150,7 +177,7 @@ class Parser(private val tokens: List<Token>) {
                 return AssignExpression(expr.name, value)
             }
 
-            throw ParseException("Недопустимая цель для присваивания.", equals.line)
+            throw ParseException("Invalid assignment target.", equals.line)
         }
 
         return expr
@@ -235,7 +262,28 @@ class Parser(private val tokens: List<Token>) {
             return UnaryExpression(op, right)
         }
 
-        return parsePrimary()
+        return parseCall()
+    }
+
+    private fun parseCall(): Expression {
+        var expr = parsePrimary()
+
+        while (match(TokenType.LPAREN)) {
+            val arguments = mutableListOf<Expression>()
+            if (!check(TokenType.RPAREN)) {
+                do {
+                    arguments.add(parseExpression())
+                } while (match(TokenType.COMMA))
+            }
+            consume(TokenType.RPAREN, "Expected ')' after arguments.")
+
+            if (expr !is VariableExpression) {
+                throw ParseException("Expected function name before '('.", previous().line)
+            }
+            expr = CallExpression(expr.name, arguments)
+        }
+
+        return expr
     }
 
     private fun parsePrimary(): Expression {
@@ -266,11 +314,11 @@ class Parser(private val tokens: List<Token>) {
 
         if (match(TokenType.LPAREN)) {
             val expr = parseExpression()
-            consume(TokenType.RPAREN, "Ожидается ')' после выражения.")
+            consume(TokenType.RPAREN, "Expected ')' after expression.")
             return expr
         }
 
-        throw ParseException("Ожидается выражение.", peek().line)
+        throw ParseException("Expected expression.", peek().line)
     }
 
     private fun match(vararg types: TokenType): Boolean {
@@ -312,7 +360,7 @@ class Parser(private val tokens: List<Token>) {
             if (previous().tokenType == TokenType.SEMICOLON) return
 
             when (peek().tokenType) {
-                TokenType.VAR, TokenType.PRINT, TokenType.IF, TokenType.WHILE -> return
+                TokenType.VAR, TokenType.FUN, TokenType.RETURN, TokenType.PRINT, TokenType.IF, TokenType.WHILE -> return
                 else -> advance()
             }
         }

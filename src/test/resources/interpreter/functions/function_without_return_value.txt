@@ -1,0 +1,5 @@
+fun empty() {
+    return;
+}
+
+print empty();

@@ -23,6 +23,8 @@ class Interpreter {
             is IfStatement -> executeIfStatement(statement)
             is WhileStatement -> executeWhileStatement(statement)
             is BlockStatement -> executeBlockStatement(statement)
+            is FunctionStatement -> environment.defineFunction(statement.name, statement)
+            is ReturnStatement -> throw ReturnValue(statement.value?.let { evaluate(it) } ?: ValueType.NullValue)
             is ExpressionStatement -> evaluate(statement.expression)
         }
     }
@@ -77,7 +79,8 @@ class Interpreter {
             is UnaryExpression -> evaluateUnary(expression)
             is BinaryExpression -> evaluateBinary(expression)
             is AssignExpression -> evaluateAssignment(expression)
-            else -> throw RuntimeException("Неизвестное выражение: ${expression::class.simpleName}")
+            is CallExpression -> evaluateCall(expression)
+            else -> throw RuntimeException("Unknown expression: ${expression::class.simpleName}")
         }
     }
     
@@ -92,13 +95,13 @@ class Interpreter {
             TokenType.MINUS -> {
                 when (right) {
                     is ValueType.NumberValue -> ValueType.NumberValue(-right.value)
-                    else -> throw RuntimeException("Ожидается число для унарного минуса")
+                    else -> throw RuntimeException("Expected number for unary minus")
                 }
             }
             TokenType.EXCL -> {
                 ValueType.BooleanValue(!isTruthy(right))
             }
-            else -> throw RuntimeException("Неизвестный унарный оператор: ${expression.operator}")
+            else -> throw RuntimeException("Unknown unary operator: ${expression.operator}")
         }
     }
     
@@ -113,7 +116,7 @@ class Interpreter {
                         ValueType.NumberValue(left.value + right.value)
                     left is ValueType.StringValue || right is ValueType.StringValue -> 
                         ValueType.StringValue(left.toString() + right.toString())
-                    else -> throw RuntimeException("Недопустимые операнды для '+'")
+                    else -> throw RuntimeException("Invalid operands for '+'")
                 }
             }
             TokenType.MINUS -> {
@@ -127,7 +130,7 @@ class Interpreter {
             TokenType.SLASH -> {
                 requireBothNumbers(left, right, "/")
                 val rightNum = right as ValueType.NumberValue
-                if (rightNum.value == 0.0) throw RuntimeException("Деление на ноль")
+                if (rightNum.value == 0.0) throw RuntimeException("Division by zero")
                 ValueType.NumberValue((left as ValueType.NumberValue).value / rightNum.value)
             }
             TokenType.LT -> {
@@ -158,7 +161,7 @@ class Interpreter {
             TokenType.OR -> {
                 ValueType.BooleanValue(isTruthy(left) || isTruthy(right))
             }
-            else -> throw RuntimeException("Неизвестный бинарный оператор: ${expression.operator}")
+            else -> throw RuntimeException("Unknown binary operator: ${expression.operator}")
         }
     }
     
@@ -166,6 +169,33 @@ class Interpreter {
         val value = evaluate(expression.value)
         environment.assign(expression.name, value)
         return value
+    }
+
+    private fun evaluateCall(expression: CallExpression): ValueType {
+        val function = environment.getFunction(expression.callee)
+        if (function.parameters.size != expression.arguments.size) {
+            throw RuntimeException(
+                "Function '${expression.callee}' expects ${function.parameters.size} arguments, got ${expression.arguments.size}"
+            )
+        }
+
+        val arguments = expression.arguments.map { evaluate(it) }
+        val parentEnvironment = environment
+        environment = environment.createChild()
+        try {
+            for ((index, parameter) in function.parameters.withIndex()) {
+                environment.define(parameter, arguments[index])
+            }
+            for (statement in function.body.statements) {
+                execute(statement)
+            }
+        } catch (returnValue: ReturnValue) {
+            return returnValue.value
+        } finally {
+            environment = parentEnvironment
+        }
+
+        return ValueType.NullValue
     }
     
     private fun isTruthy(value: ValueType): Boolean {
@@ -189,7 +219,7 @@ class Interpreter {
     
     private fun requireBothNumbers(left: ValueType, right: ValueType, operator: String) {
         if (left !is ValueType.NumberValue || right !is ValueType.NumberValue) {
-            throw RuntimeException("Операнды для '$operator' должны быть числами")
+            throw RuntimeException("Operands for '$operator' must be numbers")
         }
     }
 }
